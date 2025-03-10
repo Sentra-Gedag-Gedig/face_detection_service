@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>WebSocket Test</title>
+  </head>
+  <body>
+    <video id="video" width="640" height="480" autoplay></video>
+    <canvas id="canvas" style="display: none"></canvas>
+    <div id="status"></div>
+
+    <script>
+      const ws = new WebSocket("ws://localhost:8080/api/v1/face/ws");
+      const video = document.getElementById("video");
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      const status = document.getElementById("status");
+
+      ws.onopen = () => {
+        status.textContent = "Connected to backend!";
+
+        // Minta akses kamera
+        navigator.mediaDevices
+          .getUserMedia({ video: true })
+          .then((stream) => {
+            video.srcObject = stream;
+            // Mulai mengirim frame
+            sendFrames();
+          })
+          .catch((err) => {
+            console.error("Error:", err);
+          });
+      };
+
+      ws.onmessage = (event) => {
+        const result = JSON.parse(event.data);
+        status.textContent = `Status: ${
+          result.status
+        }, Instructions: ${result.instructions.join(", ")}`;
+      };
+
+      ws.onerror = (error) => {
+        status.textContent = "WebSocket Error!";
+        console.error("WebSocket Error:", error);
+      };
+
+      ws.onclose = () => {
+        status.textContent = "WebSocket Closed";
+      };
+
+      function sendFrames() {
+        if (ws.readyState === WebSocket.OPEN) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          ctx.drawImage(video, 0, 0);
+
+          // Convert canvas to blob
+          canvas.toBlob((blob) => {
+            ws.send(blob);
+          }, "image/jpeg");
+        }
+        setTimeout(sendFrames, 100); // Kirim frame setiap 100ms
+      }
+    </script>
+  </body>
+</html>
